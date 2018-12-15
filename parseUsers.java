@@ -74,15 +74,18 @@ public class parseUsers {
   }
 
   private static void createCsv(Map<String, UserInfo> map) throws Exception {
-    String header =
-        "id\treputation\taboutMe\tupvotes\tdownvotes\tviews\tcomments\tposts\ttags\tcommentScore\tpostScore\tpostViewCount\tanswerCount\tcommentCount\tfavoriteCount\n";
+    // String header =
+    //
+    // "id\treputation\taboutMe\tupvotes\tdownvotes\tviews\tcomments\tposts\ttags\tcommentScore\tpostScore\tpostViewCount\tanswerCount\tcommentCount\tfavoriteCount\n";
 
     for (String id : map.keySet()) {
-      FileWriter fileWriter = new FileWriter("output-" + id + ".tsv");
+      // FileWriter fileWriter = new FileWriter("output-" + id + ".tsv");
+      FileWriter fileWriter = new FileWriter("output-" + id + ".txt");
       PrintWriter printWriter = new PrintWriter(fileWriter);
-      printWriter.write(header);
+      // printWriter.write(header);
       UserInfo user = map.get(id);
       StringBuilder builder = new StringBuilder();
+      /*
       builder.append(id + "\t");
       builder.append(user.reputation + "\t");
       builder.append(user.aboutMe + "\t");
@@ -107,6 +110,26 @@ public class parseUsers {
       builder.append(user.answerCount + "\t");
       builder.append(user.commentCount + "\t");
       builder.append(user.favoriteCount + "\n");
+      */
+      for (String s : user.commentList) {
+        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        target = target.replaceAll("\\<[^>]*>", "");
+        // target = Jsoup.parse(target).text();
+        builder.append(target + " ");
+      }
+      for (String s : user.postList) {
+        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        target = target.replaceAll("\\<[^>]*>", "");
+        builder.append(target + " ");
+      }
+      for (String s : user.postTags) {
+        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        target = target.replaceAll("\\<[^>]*>", "");
+        builder.append(target + " ");
+      }
       printWriter.write(builder.toString());
       printWriter.close();
     }
