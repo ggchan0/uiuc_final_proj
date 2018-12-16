@@ -4,14 +4,15 @@ import javax.xml.parsers.*;
 import org.xml.sax.*;
 import org.xml.sax.helpers.*;
 
+/** Contains the main method that is run and all the logic to parse the required files into */
 public class parseUsers {
 
-  static final int NUM_USERS = 10305609;
-  static final int NUM_USERS_SELECTED = 25;
-  static final String USERS_FILE_NAME = "/Users/garrett.chan/Downloads/Users.xml";
-  static final String POSTS_FILE_NAME = "/Users/garrett.chan/Downloads/Posts.xml";
-  static final String COMMENTS_FILE_NAME = "/Users/garrett.chan/Downloads/Comments.xml";
+  static final int DEFAULT_MAX_NUM_USERS = 25;
+  static String USERS_FILE_NAME;
+  static String POSTS_FILE_NAME;
+  static String COMMENTS_FILE_NAME;
 
+  // A safe way to parse an integer given a string with a null check
   static int parseAttrInt(String s) {
     if (s == null) {
       return 0;
@@ -20,6 +21,7 @@ public class parseUsers {
     return Integer.parseInt(s);
   }
 
+  // A safe way to parse a long given a string with a null check
   static long parseAttrLong(String s) {
     if (s == null) {
       return 0;
@@ -28,35 +30,23 @@ public class parseUsers {
     return Long.parseLong(s);
   }
 
+  // A safe way to do String validation with a null check
+  // Also removes any tab (\t), newline (\n), or HTML tag from the string
   static String parseAttrString(String s) {
     if (s == null) {
       return "";
     }
 
-    return s.replace("\t", "").replace("\n", "");
+    return s.replaceAll("(?i)<td[^>]*>", " ")
+        .replaceAll("\\s+", " ")
+        .replaceAll("\\<[^>]*>", "")
+        .replace("\t", "")
+        .replace("\n", "");
   }
 
-  private static Map<String, UserInfo> getUsers() {
-    File fXmlFile;
-    SAXParserFactory factory;
-    SAXParser saxParser;
-    TagHandler tagHandler = null;
-
-    try {
-      fXmlFile = new File(USERS_FILE_NAME);
-      factory = SAXParserFactory.newInstance();
-      saxParser = factory.newSAXParser();
-      tagHandler = new TagHandler();
-      saxParser.parse(fXmlFile, tagHandler);
-    } catch (SAXException e) {
-      // do nothing
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    return tagHandler.getMap();
-  }
-
+  // Method to create a map of IDs to the corresponding UserInfo
+  // Utilizes polymorphism to reuse code and reduce the amount of work needed to parse
+  // three different kinds of files into usable data
   private static void populateMap(Map<String, UserInfo> map, Handler handler, String file_name) {
     File fXmlFile;
     SAXParserFactory factory;
@@ -68,68 +58,32 @@ public class parseUsers {
       factory = SAXParserFactory.newInstance();
       saxParser = factory.newSAXParser();
       saxParser.parse(fXmlFile, handler);
+    } catch (SAXException e) {
+      // swallow
     } catch (Exception e) {
       e.printStackTrace();
+      System.exit(-1);
     }
   }
 
-  private static void createCsv(Map<String, UserInfo> map) throws Exception {
-    // String header =
-    //
-    // "id\treputation\taboutMe\tupvotes\tdownvotes\tviews\tcomments\tposts\ttags\tcommentScore\tpostScore\tpostViewCount\tanswerCount\tcommentCount\tfavoriteCount\n";
-
+  // Creates the output file from all the processed users
+  private static void createOutput(Map<String, UserInfo> map) throws Exception {
     for (String id : map.keySet()) {
-      // FileWriter fileWriter = new FileWriter("output-" + id + ".tsv");
-      FileWriter fileWriter = new FileWriter("output-" + id + ".txt");
+      FileWriter fileWriter = new FileWriter("../output-" + id + ".txt");
       PrintWriter printWriter = new PrintWriter(fileWriter);
-      // printWriter.write(header);
       UserInfo user = map.get(id);
       StringBuilder builder = new StringBuilder();
-      /*
-      builder.append(id + "\t");
-      builder.append(user.reputation + "\t");
-      builder.append(user.aboutMe + "\t");
-      builder.append(user.upvotes + "\t");
-      builder.append(user.downvotes + "\t");
-      builder.append(user.views + "\t");
+      // For each comment, post, or tag, do some string
       for (String s : user.commentList) {
         builder.append(s + " ");
       }
-      builder.append("\t");
       for (String s : user.postList) {
         builder.append(s + " ");
       }
-      builder.append("\t");
       for (String s : user.postTags) {
         builder.append(s + " ");
       }
-      builder.append("\t");
-      builder.append(user.commentScore + "\t");
-      builder.append(user.postScore + "\t");
-      builder.append(user.postViewCount + "\t");
-      builder.append(user.answerCount + "\t");
-      builder.append(user.commentCount + "\t");
-      builder.append(user.favoriteCount + "\n");
-      */
-      for (String s : user.commentList) {
-        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        target = target.replaceAll("\\<[^>]*>", "");
-        // target = Jsoup.parse(target).text();
-        builder.append(target + " ");
-      }
-      for (String s : user.postList) {
-        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        target = target.replaceAll("\\<[^>]*>", "");
-        builder.append(target + " ");
-      }
-      for (String s : user.postTags) {
-        String target = s.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        // target = target.replaceAll("(?i)<td[^>]*>", " ").replaceAll("\\s+", " ").trim();
-        target = target.replaceAll("\\<[^>]*>", "");
-        builder.append(target + " ");
-      }
+
       printWriter.write(builder.toString());
       printWriter.close();
     }
@@ -137,18 +91,32 @@ public class parseUsers {
 
   public static void main(String[] argv) {
     Map<String, UserInfo> map = new HashMap<String, UserInfo>();
-    populateMap(map, new TagHandler(), USERS_FILE_NAME);
+    USERS_FILE_NAME = argv[0];
+    POSTS_FILE_NAME = argv[1];
+    COMMENTS_FILE_NAME = argv[2];
+    // Set the number of users to parse through if it is passed in
+    if (argv.length > 3) {
+      int numUsers = parseUsers.parseAttrInt(argv[3]);
+      populateMap(map, new TagHandler(numUsers), USERS_FILE_NAME);
+      // Otherwise, use the default value
+    } else {
+      populateMap(map, new TagHandler(), USERS_FILE_NAME);
+    }
     populateMap(map, new PostHandler(), POSTS_FILE_NAME);
     populateMap(map, new CommentHandler(), COMMENTS_FILE_NAME);
 
     try {
-      createCsv(map);
+      createOutput(map);
     } catch (Exception e) {
       e.printStackTrace();
     }
   }
 }
 
+/**
+ * Handler which will be morphed into a TagHandler, PostHandler, or CommentHandler Class creates a
+ * map of an ID to the corresponding UserInfo, and allows methods to access it
+ */
 class Handler extends DefaultHandler {
   Map<String, UserInfo> map;
 
@@ -175,13 +143,27 @@ class Handler extends DefaultHandler {
   }
 }
 
+/**
+ * Implementation of Handler to parse through the Users.xml file Parses through max_num_users (if
+ * given) or DEFAULT_MAX_NUM_USERS which is currently set to 25 users. Class will create a map of
+ * the ID to the UserInfo This will throw a SAXException when it processes max_num_users users to
+ * stop parsing through the file
+ */
 class TagHandler extends Handler {
 
   int num_users;
+  int max_num_users;
 
   TagHandler() {
     super();
     num_users = 0;
+    this.max_num_users = parseUsers.DEFAULT_MAX_NUM_USERS;
+  }
+
+  TagHandler(int max_num_users) {
+    super();
+    num_users = 0;
+    this.max_num_users = max_num_users;
   }
 
   @Override
@@ -201,17 +183,22 @@ class TagHandler extends Handler {
     int downvotes = parseUsers.parseAttrInt(attributes.getValue("DownVotes"));
     long views = parseUsers.parseAttrLong(attributes.getValue("Views"));
 
-    System.out.println(attributes.getValue("Id"));
     map.put(
         attributes.getValue("Id"),
         new UserInfo(id, reputation, aboutMe, upvotes, downvotes, views));
 
-    if (++num_users == 25) {
+    // If we process the desired amount of users, throw an exception to stop processing data
+    if (++num_users == max_num_users) {
       throw new SAXException();
     }
   }
 }
 
+/**
+ * Implementation of Handler to parse through the Posts.xml file. This will go through every post in
+ * the xml file and get every post and related metadata for users that are specified within the
+ * given map.
+ */
 class PostHandler extends Handler {
   PostHandler() {
     super();
@@ -252,6 +239,10 @@ class PostHandler extends Handler {
   }
 }
 
+/**
+ * Implementation of Handler which will parse through the Comments.xml file. Adds the corresponding
+ * comments to every user in the map.
+ */
 class CommentHandler extends Handler {
   public void startElement(String uri, String localName, String qName, Attributes attributes)
       throws SAXException {
@@ -270,6 +261,11 @@ class CommentHandler extends Handler {
   }
 }
 
+/**
+ * Plain Old Java Object to hold data about a given user. At the current moment, we only use the
+ * comments, posts, and tags of the user. If this project were to continue, additional metadata
+ * about the user can be utilized to create a more powerful ranking system.
+ */
 class UserInfo {
   int id;
   long reputation;
